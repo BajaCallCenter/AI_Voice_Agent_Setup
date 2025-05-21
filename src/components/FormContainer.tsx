@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, Loader2 } from 'lucide-react';
+import { Mail, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
 
 // Form Steps
 import ClientInformation from './FormSteps/ClientInformation';
@@ -22,7 +22,7 @@ export default function FormContainer() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAdditionalNotes, setShowAdditionalNotes] = useState(false);
   const { getValues, trigger } = useFormContext();
@@ -92,7 +92,10 @@ export default function FormContainer() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          sendEmail: true
+        }),
       });
       
       if (!response.ok) {
@@ -100,14 +103,8 @@ export default function FormContainer() {
         throw new Error(`Server error: ${response.status} ${response.statusText}${errorData ? ` - ${errorData}` : ''}`);
       }
       
-      const blob = await response.blob();
-      if (!blob.size) {
-        throw new Error('Generated PDF is empty');
-      }
-
-      const url = URL.createObjectURL(blob);
-      setPdfUrl(url);
       setIsComplete(true);
+      setIsSubmitted(true);
     } catch (error) {
       console.error('Error generating PDF:', error);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
@@ -164,7 +161,14 @@ export default function FormContainer() {
               {currentStep < formSteps.length - 1 ? (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={() => {
+                    if (currentStep === formSteps.length - 2) {
+                      setShowAdditionalNotes(true);
+                      setIsComplete(true);
+                    } else {
+                      nextStep();
+                    }
+                  }}
                   className="px-4 py-2 bg-[#D602C6] text-white rounded-md text-sm font-medium hover:bg-[#D602C6]/90 transition-colors"
                 >
                   Next
@@ -173,18 +177,15 @@ export default function FormContainer() {
                 <button
                   type="submit"
                   disabled={!isValid || isSubmitting}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center
-                    ${!isValid || isSubmitting
-                      ? 'bg-[#D602C6]/50 text-white cursor-not-allowed'
-                      : 'bg-[#D602C6] text-white hover:bg-[#D602C6]/90'}`}
+                  className="px-4 py-2 bg-[#D602C6] text-white rounded-md text-sm font-medium hover:bg-[#D602C6]/90 transition-colors flex items-center"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                      Generating PDF...
+                      Sending PDF...
                     </>
                   ) : (
-                    'Generate PDF'
+                    'Send Information'
                   )}
                 </button>
               )}
@@ -192,70 +193,93 @@ export default function FormContainer() {
           </form>
         </>
       ) : (
+        isSubmitted ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-12"
+          >
+            <div className="mx-auto w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-8 w-8 text-success-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-black mb-2">Your information has been submitted, Thank You!</h2>
+            <p className="text-black mb-6">
+              We'll review your requirements and get back to you shortly.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-[#D602C6]">
+              <Mail className="h-4 w-4" />
+              <span className="text-sm">A email with your information has been sent to a VoiceMedia agent! </span>
+            </div>
+            <button
+              onClick={() => {
+                setIsComplete(false);
+                setIsSubmitted(false);
+                setCurrentStep(0);
+                setError(null);
+                setShowAdditionalNotes(false);
+              }}
+              className="mt-8 px-6 py-2 bg-[#D602C6] text-white rounded-md text-sm font-medium hover:bg-[#D602C6]/90 transition-colors flex items-center mx-auto"
+            >
+              Create New Form
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
+          </motion.div>
+        ) : (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center py-12"
         >
           <div className="mx-auto w-16 h-16 bg-success-50 rounded-full flex items-center justify-center mb-4">
-            <Download className="h-8 w-8 text-success-500" />
+            <CheckCircle className="h-8 w-8 text-success-500" />
           </div>
-          <h2 className="text-2xl font-bold text-black mb-2">
-            {showAdditionalNotes ? "Add Additional Notes" : "Your PDF is Ready!"}
-          </h2>
+          <h2 className="text-2xl font-bold text-black mb-2">Add Additional Notes</h2>
           <p className="text-black mb-6">
-            {showAdditionalNotes 
-              ? "Add any extra information you'd like to include in your setup form."
-              : "Thank you for completing the AI Voice Agent setup form."}
+            Add any extra information you'd like to include in your setup form.
           </p>
           
-          {showAdditionalNotes ? (
-            <div className="max-w-xl mx-auto">
-              <AdditionalNotes />
-              <div className="mt-6 flex justify-center gap-4">
-                <button
-                  onClick={() => setShowAdditionalNotes(false)}
-                  className="px-4 py-2 bg-neutral-200 text-neutral-700 rounded-md text-sm font-medium hover:bg-neutral-300 transition-colors"
-                >
-                  Back
-                </button>
-              </div>
+          <div className="max-w-xl mx-auto">
+            <AdditionalNotes />
+            <div className="mt-6 flex justify-center gap-4">
+              <button
+                onClick={() => {
+                  setIsComplete(false);
+                  setCurrentStep(formSteps.length - 2);
+                }}
+                className="px-4 py-2 bg-neutral-200 text-black rounded-md text-sm font-medium hover:bg-neutral-300 transition-colors"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => handleSubmit(onSubmit)()}
+                disabled={!isValid || isSubmitting}
+                className="px-4 py-2 bg-[#D602C6] text-white rounded-md text-sm font-medium hover:bg-[#D602C6]/90 transition-colors flex items-center"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    Sending PDF...
+                  </>
+                ) : (
+                  'Send Information'
+                )}
+              </button>
             </div>
-          ) : pdfUrl && (
-            <div className="space-y-4">
-            <a
-              href={pdfUrl}
-              download="ai_voice_agent_setup.pdf"
-              className="inline-flex items-center px-4 py-2 bg-[#D602C6] text-white rounded-md text-sm font-medium hover:bg-[#D602C6]/90 transition-colors"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </a>
-            <button
-              onClick={() => setShowAdditionalNotes(true)}
-              className="block mx-auto mt-4 px-4 py-2 bg-white border border-[#D602C6] text-[#D602C6] rounded-md text-sm font-medium hover:bg-[#D602C6]/5 transition-colors"
-            >
-              Add More Notes
-            </button>
-            </div>
-          )}
+          </div>
           
           <button
             onClick={() => {
               setIsComplete(false);
-              setCurrentStep(0);
+              setCurrentStep(formSteps.length - 2);
               setError(null);
               setShowAdditionalNotes(false);
-              if (pdfUrl) {
-                URL.revokeObjectURL(pdfUrl);
-                setPdfUrl(null);
-              }
             }}
             className="mt-4 text-primary-500 hover:text-primary-600 text-sm block mx-auto"
           >
-            Return to form
+            
           </button>
         </motion.div>
+        )
       )}
     </div>
   );

@@ -8,6 +8,7 @@ const AILiveAgentHandling: React.FC = () => {
   const { register, watch, formState: { errors } } = useFormContext();
   const aiLiveAgentMix = watch('aiLiveAgentMix');
   const selectedLiveAgentCalls = watch('liveAgentCalls') || [];
+  const liveAgentProvider = watch('liveAgentProvider');
 
   return (
     <div className="space-y-6">
@@ -64,6 +65,31 @@ const AILiveAgentHandling: React.FC = () => {
           required
           errors={errors}
           placeholder="Enter other call types for live agents"
+        />
+      )}
+
+      <RadioGroup
+        label="If a live agent is required during the call, how would you like us to handle it?"
+        name="liveAgentProvider"
+        register={register}
+        required
+        errors={errors}
+        options={[
+          { value: "voicemedia", label: "Voicemedia should provide the live agents" },
+          { value: "internal", label: "Your company will provide the live agents and we should transfer to your internal team" },
+          { value: "depends", label: "It depends on the call type" },
+          { value: "other", label: "Other" }
+        ]}
+      />
+
+      {liveAgentProvider === 'other' && (
+        <FormField
+          label="Please specify your preferred live agent handling"
+          name="otherLiveAgentProvider"
+          register={register}
+          required
+          errors={errors}
+          placeholder="Describe how you would like live agent handling to work"
         />
       )}
     </div>
